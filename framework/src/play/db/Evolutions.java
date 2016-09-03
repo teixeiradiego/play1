@@ -239,6 +239,7 @@ public class Evolutions extends PlayPlugin {
         try {
             Connection connection = getNewConnection();
             int applying = -1;
+            String applyingSQL = null;
             try {
                 for (Evolution evolution : getEvolutionScript()) {
                     applying = evolution.revision;
@@ -264,7 +265,16 @@ public class Evolutions extends PlayPlugin {
                             if (StringUtils.isEmpty(s)) {
                                 continue;
                             }
-                            connection.createStatement().execute(s);
+                            applyingSQL = s;
+                            
+                            System.out.println("Applying SQL:\n" + applyingSQL);
+                            
+                            if(isOracleDialectInUse() && s.endsWith(";")) {
+                            	connection.createStatement().execute(s.substring(0, s.length() - 1));
+                            } else {
+                            	connection.createStatement().execute(s);
+                            }
+                            applyingSQL = null;
                         }
                     }
                     // Insert into logs
@@ -286,7 +296,11 @@ public class Evolutions extends PlayPlugin {
                 ps.setInt(2, applying);
                 ps.execute();
                 closeConnection(connection);
-                Logger.error(e, "Can't apply evolution");
+                if(applyingSQL == null) {
+                	Logger.error(e, "Can't apply evolution");
+                } else {
+                	Logger.error(e, "Can't apply evolution. Error while applying SQL:\n" + applyingSQL);
+                }
                 return false;
             }
         } catch (Exception e) {
@@ -495,9 +509,9 @@ public class Evolutions extends PlayPlugin {
 
         public Evolution(int revision, String sql_up, String sql_down, boolean applyUp) {
             this.revision = revision;
-            this.sql_down = sql_down;
-            this.sql_up = sql_up;
-            this.hash = Codec.hexSHA1(sql_up + sql_down);
+            this.sql_down = sql_down != null ? sql_down : "";
+            this.sql_up = sql_up != null ? sql_up : "";
+            this.hash = Codec.hexSHA1(this.sql_up + this.sql_down);
             this.applyUp = applyUp;
         }
 
