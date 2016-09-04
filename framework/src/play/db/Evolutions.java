@@ -7,6 +7,8 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+
 import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -266,15 +268,17 @@ public class Evolutions extends PlayPlugin {
                                 continue;
                             }
                             applyingSQL = s;
-                            
-                            System.out.println("Applying SQL:\n" + applyingSQL);
-                            
-                            if(isOracleDialectInUse() && s.endsWith(";")) {
-                            	connection.createStatement().execute(s.substring(0, s.length() - 1));
-                            } else {
-                            	connection.createStatement().execute(s);
+                            Statement stmt = connection.createStatement();
+                            try {                            	
+	                            if(isOracleDialectInUse() && s.endsWith(";")) {
+	                            	stmt.execute(s.substring(0, s.length() - 1));
+	                            } else {
+	                            	stmt.execute(s);
+	                            }	                            
+	                            applyingSQL = null;
+                            } finally {
+                            	stmt.close();
                             }
-                            applyingSQL = null;
                         }
                     }
                     // Insert into logs
@@ -297,9 +301,9 @@ public class Evolutions extends PlayPlugin {
                 ps.execute();
                 closeConnection(connection);
                 if(applyingSQL == null) {
-                	Logger.error(e, "Can't apply evolution");
+                	Logger.error(e, "Can't apply evolution '" + applying + "'. ");
                 } else {
-                	Logger.error(e, "Can't apply evolution. Error while applying SQL:\n" + applyingSQL);
+                	Logger.error(e, "Can't apply evolution '" + applying + "'. Error while applying SQL:\n" + applyingSQL);
                 }
                 return false;
             }
